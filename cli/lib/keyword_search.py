@@ -19,6 +19,10 @@ def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
     return results
 
 
+def filter_stopwords(tokens: list[str], stop_words: list[str]) -> list[str]:
+    return [token for token in tokens if token not in stop_words]
+
+
 def has_matching_token(query_tokens: list[str], title_tokens: list[str]) -> bool:
     for query_token in query_tokens:
         for title_token in title_tokens:
