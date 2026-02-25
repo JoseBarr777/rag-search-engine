@@ -2,6 +2,7 @@ import string
 
 from .search_utils import DEFAULT_SEARCH_LIMIT, load_movies
 from .stopword_loader import load_stopwords
+from nltk.stem import PorterStemmer
 
 
 def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
@@ -11,13 +12,24 @@ def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
     for movie in movies:
         query_tokens = filter_stopwords(tokenize_text(query), stop_words)
         title_tokens = filter_stopwords(tokenize_text(movie["title"]), stop_words)
-        if has_matching_token(query_tokens, title_tokens):
+        stemmed_query_tokens = stem_tokens(query_tokens)
+        stemmed_title_tokens = stem_tokens(title_tokens)
+        if has_matching_token(stemmed_query_tokens, stemmed_title_tokens):
             results.append(movie)
             if len(results) >= limit:
                 break
 
     return results
 
+def stem_tokens(tokens: list[str]):
+    stemmer = PorterStemmer()
+    seen = set()
+    for token in tokens:
+        stemmed_token = stemmer.stem(token)
+        if stemmed_token not in seen:
+            seen.add(stemmed_token)
+            
+    return list(seen)
 
 def filter_stopwords(tokens: list[str], stop_words: list[str]) -> list[str]:
     return [token for token in tokens if token not in stop_words]
