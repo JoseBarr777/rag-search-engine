@@ -13,3 +13,8 @@ def load_movies() -> list[dict]:
     with open(DATA_PATH, "r") as f:
         data = json.load(f)
     return data["movies"]
+
+
+def load_stopwords(path: str = STOPWORDS_PATH) -> list[str]:
+    with open(path) as file:
+        return file.read().splitlines()
