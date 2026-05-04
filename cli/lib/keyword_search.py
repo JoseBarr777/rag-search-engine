@@ -1,3 +1,4 @@
+import math
 import os
 import pickle
 import string
@@ -64,6 +65,14 @@ class InvertedIndex:
         token = tokens[0]
         return self.term_frequencies[doc_id][token]
 
+    def get_idf(self, term: str) -> float:
+        tokens = tokenize_text(term)
+        if len(tokens) != 1:
+            raise ValueError("term must be a single token")
+        token = tokens[0]
+        n = len(self.docmap)
+        df = len(self.index.get(token, set()))
+        return math.log((n + 1) / (df + 1))
 
 def build_command() -> None:
     idx = InvertedIndex()
@@ -119,3 +128,8 @@ def tf_command(doc_id: int, term: str) -> int:
     idx = InvertedIndex()
     idx.load()
     return idx.get_tf(doc_id, term)
+
+def idf_command(term: str) -> float:
+    idx = InvertedIndex()
+    idx.load()
+    return idx.get_idf(term)
