@@ -1,14 +1,44 @@
 from sentence_transformers import SentenceTransformer
+import numpy as np
+import os
+from .search_utils import CACHE_DIR, load_movies
 
+EMBEDDINGS_PATH = os.path.join(CACHE_DIR, "movie_embeddings.npy")
 
 class SemanticSearch:
     def __init__(self, model_name="all-MiniLM-L6-v2"):
         self.model = SentenceTransformer(model_name)
+        self.embeddings = None
+        self.documents = None
+        self.document_map = {}
 
     def generate_embedding(self, text):
         if not text or not text.strip():
             raise ValueError("cannot generate embedding for empty text")
         return self.model.encode([text])[0]
+
+    def build_embeddings(self, documents):
+        self.documents = documents
+        for doc in documents:
+            self.document_map[doc['id']] = doc
+        str_list = [f"{doc['title']}: {doc['description']}" for doc in documents]
+        self.embeddings = self.model.encode(str_list, show_progress_bar=True)
+        os.makedirs(os.path.dirname(EMBEDDINGS_PATH), exist_ok=True)
+        np.save(EMBEDDINGS_PATH, self.embeddings)
+        return self.embeddings
+
+    def load_or_create_embeddings(self, documents):
+        self.documents = documents
+        for doc in documents:
+            self.document_map[doc['id']] = doc
+
+        if os.path.exists(EMBEDDINGS_PATH):
+            self.embeddings = np.load(EMBEDDINGS_PATH)
+            if len(self.embeddings) == len(documents):
+                return self.embeddings
+
+        return self.build_embeddings(documents)
+
 
 def verify_model():
     search_instance = SemanticSearch()
@@ -21,3 +51,10 @@ def embed_text(text):
     print(f"Text: {text}")
     print(f"First 3 dimensions: {embedding[:3]}")
     print(f"Dimensions: {embedding.shape[0]}")
+
+def verify_embeddings():
+    search_instance = SemanticSearch()
+    documents = load_movies()
+    embeddings = search_instance.load_or_create_embeddings(documents)
+    print(f"Number of docs:   {len(documents)}")
+    print(f"Embeddings shape: {embeddings.shape[0]} vectors in {embeddings.shape[1]} dimensions")
