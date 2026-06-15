@@ -1,9 +1,12 @@
-from sentence_transformers import SentenceTransformer
-import numpy as np
 import os
+
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
 from .search_utils import CACHE_DIR, load_movies
 
-EMBEDDINGS_PATH = os.path.join(CACHE_DIR, "movie_embeddings.npy")
+MOVIE_EMBEDDINGS_PATH = os.path.join(CACHE_DIR, "movie_embeddings.npy")
+
 
 class SemanticSearch:
     def __init__(self, model_name="all-MiniLM-L6-v2"):
@@ -19,21 +22,25 @@ class SemanticSearch:
 
     def build_embeddings(self, documents):
         self.documents = documents
+        self.document_map = {}
+        movie_strings = []
         for doc in documents:
-            self.document_map[doc['id']] = doc
-        str_list = [f"{doc['title']}: {doc['description']}" for doc in documents]
-        self.embeddings = self.model.encode(str_list, show_progress_bar=True)
-        os.makedirs(os.path.dirname(EMBEDDINGS_PATH), exist_ok=True)
-        np.save(EMBEDDINGS_PATH, self.embeddings)
+            self.document_map[doc["id"]] = doc
+            movie_strings.append(f"{doc['title']}: {doc['description']}")
+        self.embeddings = self.model.encode(movie_strings, show_progress_bar=True)
+
+        os.makedirs(os.path.dirname(MOVIE_EMBEDDINGS_PATH), exist_ok=True)
+        np.save(MOVIE_EMBEDDINGS_PATH, self.embeddings)
         return self.embeddings
 
     def load_or_create_embeddings(self, documents):
         self.documents = documents
+        self.document_map = {}
         for doc in documents:
-            self.document_map[doc['id']] = doc
+            self.document_map[doc["id"]] = doc
 
-        if os.path.exists(EMBEDDINGS_PATH):
-            self.embeddings = np.load(EMBEDDINGS_PATH)
+        if os.path.exists(MOVIE_EMBEDDINGS_PATH):
+            self.embeddings = np.load(MOVIE_EMBEDDINGS_PATH)
             if len(self.embeddings) == len(documents):
                 return self.embeddings
 
@@ -58,3 +65,10 @@ def verify_embeddings():
     embeddings = search_instance.load_or_create_embeddings(documents)
     print(f"Number of docs:   {len(documents)}")
     print(f"Embeddings shape: {embeddings.shape[0]} vectors in {embeddings.shape[1]} dimensions")
+    
+def embed_query_text(query):
+    search_instance = SemanticSearch()
+    embedding = search_instance.generate_embedding(query)
+    print(f"Query: {query}")
+    print(f"First 3 dimensions: {embedding[:3]}")
+    print(f"Shape: {embedding.shape}")
