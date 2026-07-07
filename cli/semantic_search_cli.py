@@ -4,6 +4,7 @@ import argparse
 
 from lib.semantic_search import (
     chunk_text,
+    chunked_semantic_search,
     embed_chunks_command,
     embed_query_text,
     embed_text,
@@ -51,6 +52,12 @@ def main() -> None:
 
     subparsers.add_parser("embed_chunks", help="Generate embeddings for document chunks")
 
+    search_chunked_parser = subparsers.add_parser(
+        "search_chunked", help="Search for movies by meaning using chunked embeddings"
+    )
+    search_chunked_parser.add_argument("query", type=str, help="Search query")
+    search_chunked_parser.add_argument("--limit", type=int, default=5, help="Number of results to return")
+
     args = parser.parse_args()
 
     match args.command:
@@ -71,6 +78,8 @@ def main() -> None:
         case "embed_chunks":
             embeddings = embed_chunks_command()
             print(f"Generated {len(embeddings)} chunked embeddings")
+        case "search_chunked":
+            chunked_semantic_search(args.query, args.limit)
         case _:
             parser.print_help()
 

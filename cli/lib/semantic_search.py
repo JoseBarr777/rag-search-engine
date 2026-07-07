@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from typing import Any, TypedDict
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -12,9 +13,17 @@ from .search_utils import (
     DEFAULT_CHUNK_SIZE,
     DEFAULT_SEARCH_LIMIT,
     DEFAULT_SEMANTIC_CHUNK_SIZE,
+    DOCUMENT_PREVIEW_LENGTH,
     MOVIE_EMBEDDINGS_PATH,
+    format_search_result,
     load_movies,
 )
+
+
+class ChunkMetadata(TypedDict):
+    movie_idx: int
+    chunk_idx: int
+    total_chunks: int
 
 
 class SemanticSearch:
@@ -91,7 +100,7 @@ class ChunkedSemanticSearch(SemanticSearch):
     def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
         super().__init__(model_name)
         self.chunk_embeddings = None
-        self.chunk_metadata = None
+        self.chunk_metadata: list[ChunkMetadata] | None = None
     
     def build_chunk_embeddings(self, documents: list[dict]) -> np.ndarray:
         self.documents = documents
@@ -146,6 +155,55 @@ class ChunkedSemanticSearch(SemanticSearch):
 
         return self.build_chunk_embeddings(documents)
 
+    def search_chunks(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
+        if self.chunk_embeddings is None or self.chunk_metadata is None:
+            raise ValueError(
+                "No chunk embeddings loaded. Call `load_or_create_chunk_embeddings` first."
+            )
+
+        query_embedding = self.generate_embedding(query)
+
+        chunk_scores: list[dict[str, Any]] = []
+        for i, chunk_embedding in enumerate(self.chunk_embeddings):
+            similarity = cosine_similarity(query_embedding, chunk_embedding)
+            meta = self.chunk_metadata[i]
+            chunk_scores.append(
+                {
+                    "chunk_idx": meta["chunk_idx"],
+                    "movie_idx": meta["movie_idx"],
+                    "score": similarity,
+                }
+            )
+
+        movie_best_scores: dict[int, dict[str, Any]] = {}
+        for chunk_score in chunk_scores:
+            movie_idx = chunk_score["movie_idx"]
+            if (
+                movie_idx not in movie_best_scores
+                or chunk_score["score"] > movie_best_scores[movie_idx]["score"]
+            ):
+                movie_best_scores[movie_idx] = chunk_score
+
+        sorted_scores = sorted(
+            movie_best_scores.values(), key=lambda x: x["score"], reverse=True
+        )
+        top_scores = sorted_scores[:limit]
+
+        results = []
+        for chunk_score in top_scores:
+            doc = self.documents[chunk_score["movie_idx"]]
+            results.append(
+                format_search_result(
+                    doc["id"],
+                    doc["title"],
+                    doc["description"][:DOCUMENT_PREVIEW_LENGTH],
+                    chunk_score["score"],
+                )
+            )
+
+        return results
+
+
 def cosine_similarity(vec1, vec2):
     dot_product = np.dot(vec1, vec2)
     norm1 = np.linalg.norm(vec1)
@@ -169,7 +227,7 @@ def semantic_search(query, limit=DEFAULT_SEARCH_LIMIT):
 
     for i, result in enumerate(results, 1):
         print(f"{i}. {result['title']} (score: {result['score']:.4f})")
-        print(f"   {result['description'][:100]}...")
+        print(f"   {result['description'][:DOCUMENT_PREVIEW_LENGTH]}...")
         print()
 
 def verify_model():
@@ -252,3 +310,19 @@ def embed_chunks_command() -> np.ndarray:
     movies = load_movies()
     searcher = ChunkedSemanticSearch()
     return searcher.load_or_create_chunk_embeddings(movies)
+
+def chunked_semantic_search(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> None:
+    search_instance = ChunkedSemanticSearch()
+    documents = load_movies()
+    search_instance.load_or_create_chunk_embeddings(documents)
+
+    results = search_instance.search_chunks(query, limit)
+
+    print(f"Query: {query}")
+    print(f"Top {len(results)} results:")
+    print()
+
+    for i, result in enumerate(results, 1):
+        print(f"{i}. {result['title']} (score: {result['score']:.4f})")
+        print(f"   {result['document']}...")
+        print()
