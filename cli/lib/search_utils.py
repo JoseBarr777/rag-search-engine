@@ -12,6 +12,9 @@ DOCUMENT_PREVIEW_LENGTH = 100
 BM25_K1 = 1.5
 BM25_B = 0.75
 
+DEFAULT_HYBRID_ALPHA = 0.5
+DEFAULT_RRF_K = 60
+
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_PATH = os.path.join(PROJECT_ROOT, "data", "movies.json")
 STOPWORDS_PATH = os.path.join(PROJECT_ROOT, "data", "stopwords.txt")
@@ -33,8 +36,20 @@ def load_stopwords(path: str = STOPWORDS_PATH) -> list[str]:
         return file.read().splitlines()
 
 
+def normalize_scores(scores: list[float]) -> list[float]:
+    if not scores:
+        return []
+
+    min_score, max_score = min(scores), max(scores)
+
+    if max_score == min_score:
+        return [1.0 for _ in scores]
+
+    return [(score - min_score) / (max_score - min_score) for score in scores]
+
+
 def format_search_result(
-    doc_id: str, title: str, document: str, score: float, **metadata: Any
+    doc_id: int, title: str, document: str, score: float, **metadata: Any
 ) -> dict[str, Any]:
     return {
         "id": doc_id,
