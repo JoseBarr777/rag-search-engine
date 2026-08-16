@@ -3,7 +3,6 @@
 import argparse
 
 from lib.hybrid_search import build_command, rrf_search_command, weighted_search_command
-from lib.query_enhancement import enhance_query
 from lib.search_utils import (
     DEFAULT_HYBRID_ALPHA,
     DEFAULT_RRF_K,
@@ -55,7 +54,7 @@ def main() -> None:
     rrf_search_parser.add_argument(
         "--enhance",
         type=str,
-        choices=["spell"],
+        choices=["spell", "rewrite"],
         help="Query enhancement method",
     )
 
@@ -89,13 +88,13 @@ def main() -> None:
                 )
                 print(f"  {res['document']}...")
         case "rrf-search":
-            query = args.query
-            if args.enhance:
-                enhanced_query = enhance_query(query, args.enhance)
-                print(f"Enhanced query ({args.enhance}): '{query}' -> '{enhanced_query}'\n")
-                query = enhanced_query
-            results = rrf_search_command(query, args.k, args.limit)
-            for i, res in enumerate(results, 1):
+            result = rrf_search_command(args.query, args.k, args.enhance, args.limit)
+            if result["enhanced_query"]:
+                print(
+                    f"Enhanced query ({result['enhance_method']}): "
+                    f"'{result['original_query']}' -> '{result['enhanced_query']}'\n"
+                )
+            for i, res in enumerate(result["results"], 1):
                 bm25_rank = res["metadata"]["bm25_rank"] or "N/A"
                 semantic_rank = res["metadata"]["semantic_rank"] or "N/A"
                 print(f"{i}. {res['title']}")

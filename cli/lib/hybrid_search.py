@@ -1,6 +1,8 @@
 import os
+from typing import Literal, TypedDict
 
 from .keyword_search import InvertedIndex
+from .query_enhancement import enhance_query
 from .semantic_search import ChunkedSemanticSearch
 from .search_utils import (
     DEFAULT_HYBRID_ALPHA,
@@ -16,6 +18,16 @@ from .search_utils import (
 )
 
 SEARCH_POOL_MULTIPLIER = 500
+
+
+class RRFSearchCommandResult(TypedDict):
+    original_query: str
+    enhanced_query: str | None
+    enhance_method: Literal["spell", "rewrite"] | None
+    query: str
+    k: int
+    results: list[dict]
+
 
 class HybridSearch:
     def __init__(self, documents: list[dict]) -> None:
@@ -133,8 +145,26 @@ def weighted_search_command(
 
 
 def rrf_search_command(
-    query: str, k: int = DEFAULT_RRF_K, limit: int = DEFAULT_SEARCH_LIMIT
-) -> list[dict]:
+    query: str,
+    k: int = DEFAULT_RRF_K,
+    enhance: Literal["spell", "rewrite"] | None = None,
+    limit: int = DEFAULT_SEARCH_LIMIT,
+) -> RRFSearchCommandResult:
+    original_query = query
+    enhanced_query = None
+    if enhance:
+        enhanced_query = enhance_query(query, method=enhance)
+        query = enhanced_query
+
     documents = load_movies()
     hybrid = HybridSearch(documents)
-    return hybrid.rrf_search(query, k, limit)[:limit]
+    results = hybrid.rrf_search(query, k, limit)[:limit]
+
+    return {
+        "original_query": original_query,
+        "enhanced_query": enhanced_query,
+        "enhance_method": enhance,
+        "query": query,
+        "k": k,
+        "results": results,
+    }
