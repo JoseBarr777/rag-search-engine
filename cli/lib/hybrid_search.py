@@ -1,5 +1,4 @@
 import os
-from collections import defaultdict
 
 from .keyword_search import InvertedIndex
 from .semantic_search import ChunkedSemanticSearch
@@ -13,9 +12,10 @@ from .search_utils import (
     hybrid_score,
     load_movies,
     normalize_scores,
+    rrf_score,
 )
 
-WEIGHTED_SEARCH_POOL_MULTIPLIER = 500
+SEARCH_POOL_MULTIPLIER = 500
 
 class HybridSearch:
     def __init__(self, documents: list[dict]) -> None:
@@ -36,7 +36,7 @@ class HybridSearch:
     def weighted_search(
         self, query: str, alpha: float = DEFAULT_HYBRID_ALPHA, limit: int = DEFAULT_SEARCH_LIMIT
     ) -> list[dict]:
-        pool_size = limit * WEIGHTED_SEARCH_POOL_MULTIPLIER
+        pool_size = limit * SEARCH_POOL_MULTIPLIER
         bm25_results = self._bm25_search(query, pool_size)
         semantic_results = self.semantic_search.search_chunks(query, pool_size)
 
@@ -76,37 +76,47 @@ class HybridSearch:
             for entry in sorted_docs
         ]
 
-    def rrf_search(self, query: str, k: int = DEFAULT_RRF_K, limit: int = 10) -> list[dict]:
-        total_docs = len(self.documents)
-        bm25_results = self._bm25_search(query, total_docs)
-        semantic_results = self.semantic_search.search_chunks(query, total_docs)
-
-        doc_lookup = {r["id"]: r for r in semantic_results}
-        doc_lookup.update({r["id"]: r for r in bm25_results})
-
-        rrf_scores: dict[int, float] = defaultdict(float)
-        for rank, result in enumerate(bm25_results, start=1):
-            rrf_scores[result["id"]] += 1.0 / (k + rank)
-        for rank, result in enumerate(semantic_results, start=1):
-            rrf_scores[result["id"]] += 1.0 / (k + rank)
-
-        return self.__build_results(rrf_scores, doc_lookup, limit)
-
-    def __build_results(
-        self, scores: dict[int, float], doc_lookup: dict[int, dict], limit: int
+    def rrf_search(
+        self, query: str, k: int = DEFAULT_RRF_K, limit: int = DEFAULT_SEARCH_LIMIT
     ) -> list[dict]:
-        sorted_ids = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:limit]
+        pool_size = limit * SEARCH_POOL_MULTIPLIER
+        bm25_results = self._bm25_search(query, pool_size)
+        semantic_results = self.semantic_search.search_chunks(query, pool_size)
 
-        results = []
-        for doc_id, score in sorted_ids:
-            doc = doc_lookup[doc_id]
-            results.append(format_search_result(
-                doc_id=doc_id,
-                title=doc["title"],
-                document=doc["document"],
-                score=score,
-            ))
-        return results
+        doc_ranks: dict[int, dict] = {}
+        for rank, result in enumerate(bm25_results, start=1):
+            entry = doc_ranks.setdefault(
+                result["id"], {"document": self.document_map[result["id"]]}
+            )
+            entry["bm25_rank"] = rank
+        for rank, result in enumerate(semantic_results, start=1):
+            entry = doc_ranks.setdefault(
+                result["id"], {"document": self.document_map[result["id"]]}
+            )
+            entry["semantic_rank"] = rank
+
+        for entry in doc_ranks.values():
+            entry["rrf_score"] = (
+                rrf_score(entry["bm25_rank"], k) if "bm25_rank" in entry else 0.0
+            ) + (
+                rrf_score(entry["semantic_rank"], k) if "semantic_rank" in entry else 0.0
+            )
+
+        sorted_entries = sorted(
+            doc_ranks.values(), key=lambda entry: entry["rrf_score"], reverse=True
+        )
+
+        return [
+            format_search_result(
+                doc_id=entry["document"]["id"],
+                title=entry["document"]["title"],
+                document=entry["document"]["description"][:DOCUMENT_PREVIEW_LENGTH],
+                score=entry["rrf_score"],
+                bm25_rank=entry.get("bm25_rank"),
+                semantic_rank=entry.get("semantic_rank"),
+            )
+            for entry in sorted_entries
+        ]
 
 
 def build_command() -> None:
@@ -127,4 +137,4 @@ def rrf_search_command(
 ) -> list[dict]:
     documents = load_movies()
     hybrid = HybridSearch(documents)
-    return hybrid.rrf_search(query, k, limit)
+    return hybrid.rrf_search(query, k, limit)[:limit]

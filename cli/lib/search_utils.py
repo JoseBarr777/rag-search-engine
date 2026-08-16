@@ -52,6 +52,10 @@ def hybrid_score(bm25_score: float, semantic_score: float, alpha: float) -> floa
     return alpha * bm25_score + (1 - alpha) * semantic_score
 
 
+def rrf_score(rank: int, k: int = DEFAULT_RRF_K) -> float:
+    return 1.0 / (k + rank)
+
+
 def format_search_result(
     doc_id: int, title: str, document: str, score: float, **metadata: Any
 ) -> dict[str, Any]:

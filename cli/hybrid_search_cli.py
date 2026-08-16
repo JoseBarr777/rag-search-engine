@@ -41,14 +41,14 @@ def main() -> None:
         "--limit", type=int, default=DEFAULT_SEARCH_LIMIT, help="Number of results to return"
     )
 
-    rrf_parser = subparsers.add_parser(
-        "rrf", help="Search using Reciprocal Rank Fusion of BM25 and semantic results"
+    rrf_search_parser = subparsers.add_parser(
+        "rrf-search", help="Search using Reciprocal Rank Fusion of BM25 and semantic results"
     )
-    rrf_parser.add_argument("query", type=str, help="Search query")
-    rrf_parser.add_argument(
-        "--k", type=int, default=DEFAULT_RRF_K, help="RRF k constant (higher dampens rank influence)"
+    rrf_search_parser.add_argument("query", type=str, help="Search query")
+    rrf_search_parser.add_argument(
+        "-k", type=int, default=DEFAULT_RRF_K, help="RRF k constant (higher dampens rank influence)"
     )
-    rrf_parser.add_argument(
+    rrf_search_parser.add_argument(
         "--limit", type=int, default=DEFAULT_SEARCH_LIMIT, help="Number of results to return"
     )
 
@@ -81,11 +81,15 @@ def main() -> None:
                     f"Semantic: {res['metadata']['semantic_score']:.3f}"
                 )
                 print(f"  {res['document']}...")
-        case "rrf":
-            print("Searching for:", args.query)
+        case "rrf-search":
             results = rrf_search_command(args.query, args.k, args.limit)
             for i, res in enumerate(results, 1):
-                print(f"{i}. ({res['id']}) {res['title']} - Score: {res['score']:.5f}")
+                bm25_rank = res["metadata"]["bm25_rank"] or "N/A"
+                semantic_rank = res["metadata"]["semantic_rank"] or "N/A"
+                print(f"{i}. {res['title']}")
+                print(f"  RRF Score: {res['score']:.3f}")
+                print(f"  BM25 Rank: {bm25_rank}, Semantic Rank: {semantic_rank}")
+                print(f"  {res['document']}...")
         case "normalize":
             for score in normalize_scores(args.scores):
                 print(f"* {score:.4f}")
