@@ -23,7 +23,7 @@ SEARCH_POOL_MULTIPLIER = 500
 class RRFSearchCommandResult(TypedDict):
     original_query: str
     enhanced_query: str | None
-    enhance_method: Literal["spell", "rewrite"] | None
+    enhance_method: Literal["spell", "rewrite", "expand"] | None
     query: str
     k: int
     results: list[dict]
@@ -147,7 +147,7 @@ def weighted_search_command(
 def rrf_search_command(
     query: str,
     k: int = DEFAULT_RRF_K,
-    enhance: Literal["spell", "rewrite"] | None = None,
+    enhance: Literal["spell", "rewrite", "expand"] | None = None,
     limit: int = DEFAULT_SEARCH_LIMIT,
 ) -> RRFSearchCommandResult:
     original_query = query
