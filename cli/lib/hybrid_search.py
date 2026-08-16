@@ -7,13 +7,20 @@ from .search_utils import (
     DEFAULT_HYBRID_ALPHA,
     DEFAULT_RRF_K,
     DEFAULT_SEARCH_LIMIT,
+    DOCUMENT_PREVIEW_LENGTH,
+    SCORE_PRECISION,
     format_search_result,
+    hybrid_score,
     load_movies,
+    normalize_scores,
 )
+
+WEIGHTED_SEARCH_POOL_MULTIPLIER = 500
 
 class HybridSearch:
     def __init__(self, documents: list[dict]) -> None:
         self.documents = documents
+        self.document_map = {doc["id"]: doc for doc in documents}
         self.semantic_search = ChunkedSemanticSearch()
         self.semantic_search.load_or_create_chunk_embeddings(documents)
 
@@ -26,25 +33,48 @@ class HybridSearch:
         self.idx.load()
         return self.idx.bm25_search(query, limit)
 
-    def weighted_search(self, query: str, alpha: float, limit: int = 5) -> list[dict]:
-        total_docs = len(self.documents)
-        bm25_results = self._bm25_search(query, total_docs)
-        semantic_results = self.semantic_search.search_chunks(query, total_docs)
+    def weighted_search(
+        self, query: str, alpha: float = DEFAULT_HYBRID_ALPHA, limit: int = DEFAULT_SEARCH_LIMIT
+    ) -> list[dict]:
+        pool_size = limit * WEIGHTED_SEARCH_POOL_MULTIPLIER
+        bm25_results = self._bm25_search(query, pool_size)
+        semantic_results = self.semantic_search.search_chunks(query, pool_size)
 
-        bm25_scores = self.__normalize_scores(bm25_results)
-        semantic_scores = self.__normalize_scores(semantic_results)
+        bm25_scores = dict(zip(
+            (r["id"] for r in bm25_results),
+            normalize_scores([r["score"] for r in bm25_results]),
+        ))
+        semantic_scores = dict(zip(
+            (r["id"] for r in semantic_results),
+            normalize_scores([r["score"] for r in semantic_results]),
+        ))
 
-        doc_lookup = {r["id"]: r for r in semantic_results}
-        doc_lookup.update({r["id"]: r for r in bm25_results})
+        scored_docs: dict[int, dict] = {}
+        for doc_id in set(bm25_scores) | set(semantic_scores):
+            bm25 = bm25_scores.get(doc_id, 0.0)
+            semantic = semantic_scores.get(doc_id, 0.0)
+            scored_docs[doc_id] = {
+                "document": self.document_map[doc_id],
+                "bm25_score": bm25,
+                "semantic_score": semantic,
+                "hybrid_score": hybrid_score(bm25, semantic, alpha),
+            }
 
-        combined_scores: dict[int, float] = {}
-        for doc_id in doc_lookup:
-            combined_scores[doc_id] = (
-                alpha * bm25_scores.get(doc_id, 0.0)
-                + (1 - alpha) * semantic_scores.get(doc_id, 0.0)
+        sorted_docs = sorted(
+            scored_docs.values(), key=lambda entry: entry["hybrid_score"], reverse=True
+        )
+
+        return [
+            format_search_result(
+                doc_id=entry["document"]["id"],
+                title=entry["document"]["title"],
+                document=entry["document"]["description"][:DOCUMENT_PREVIEW_LENGTH],
+                score=entry["hybrid_score"],
+                bm25_score=round(entry["bm25_score"], SCORE_PRECISION),
+                semantic_score=round(entry["semantic_score"], SCORE_PRECISION),
             )
-
-        return self.__build_results(combined_scores, doc_lookup, limit)
+            for entry in sorted_docs
+        ]
 
     def rrf_search(self, query: str, k: int = DEFAULT_RRF_K, limit: int = 10) -> list[dict]:
         total_docs = len(self.documents)
@@ -61,21 +91,6 @@ class HybridSearch:
             rrf_scores[result["id"]] += 1.0 / (k + rank)
 
         return self.__build_results(rrf_scores, doc_lookup, limit)
-
-    def __normalize_scores(self, results: list[dict]) -> dict[int, float]:
-        if not results:
-            return {}
-
-        scores = [r["score"] for r in results]
-        min_score, max_score = min(scores), max(scores)
-
-        if max_score == min_score:
-            return {r["id"]: 1.0 for r in results}
-
-        return {
-            r["id"]: (r["score"] - min_score) / (max_score - min_score)
-            for r in results
-        }
 
     def __build_results(
         self, scores: dict[int, float], doc_lookup: dict[int, dict], limit: int
@@ -104,7 +119,7 @@ def weighted_search_command(
 ) -> list[dict]:
     documents = load_movies()
     hybrid = HybridSearch(documents)
-    return hybrid.weighted_search(query, alpha, limit)
+    return hybrid.weighted_search(query, alpha, limit)[:limit]
 
 
 def rrf_search_command(

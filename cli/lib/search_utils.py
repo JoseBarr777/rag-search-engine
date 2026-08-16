@@ -48,6 +48,10 @@ def normalize_scores(scores: list[float]) -> list[float]:
     return [(score - min_score) / (max_score - min_score) for score in scores]
 
 
+def hybrid_score(bm25_score: float, semantic_score: float, alpha: float) -> float:
+    return alpha * bm25_score + (1 - alpha) * semantic_score
+
+
 def format_search_result(
     doc_id: int, title: str, document: str, score: float, **metadata: Any
 ) -> dict[str, Any]:

@@ -29,6 +29,18 @@ def main() -> None:
         "--limit", type=int, default=DEFAULT_SEARCH_LIMIT, help="Number of results to return"
     )
 
+    weighted_search_parser = subparsers.add_parser(
+        "weighted-search", help="Search using weighted hybrid (BM25 + semantic) scoring"
+    )
+    weighted_search_parser.add_argument("query", type=str, help="Search query")
+    weighted_search_parser.add_argument(
+        "--alpha", type=float, default=DEFAULT_HYBRID_ALPHA,
+        help="Weight given to BM25 score vs semantic score (0.0-1.0)",
+    )
+    weighted_search_parser.add_argument(
+        "--limit", type=int, default=DEFAULT_SEARCH_LIMIT, help="Number of results to return"
+    )
+
     rrf_parser = subparsers.add_parser(
         "rrf", help="Search using Reciprocal Rank Fusion of BM25 and semantic results"
     )
@@ -59,6 +71,16 @@ def main() -> None:
             results = weighted_search_command(args.query, args.alpha, args.limit)
             for i, res in enumerate(results, 1):
                 print(f"{i}. ({res['id']}) {res['title']} - Score: {res['score']:.3f}")
+        case "weighted-search":
+            results = weighted_search_command(args.query, args.alpha, args.limit)
+            for i, res in enumerate(results, 1):
+                print(f"{i}. {res['title']}")
+                print(f"  Hybrid Score: {res['score']:.3f}")
+                print(
+                    f"  BM25: {res['metadata']['bm25_score']:.3f}, "
+                    f"Semantic: {res['metadata']['semantic_score']:.3f}"
+                )
+                print(f"  {res['document']}...")
         case "rrf":
             print("Searching for:", args.query)
             results = rrf_search_command(args.query, args.k, args.limit)
