@@ -60,7 +60,7 @@ def main() -> None:
     rrf_search_parser.add_argument(
         "--rerank-method",
         type=str,
-        choices=["individual"],
+        choices=["individual", "batch"],
         help="LLM re-ranking method to apply to RRF results",
     )
 
@@ -104,31 +104,26 @@ def main() -> None:
                 )
             if result["rerank_method"]:
                 print(
-                    f"Re-ranking top {args.limit} results using "
+                    f"Re-ranking top {len(result['results'])} results using "
                     f"{result['rerank_method']} method...\n"
                 )
-                print(
-                    f"Reciprocal Rank Fusion Results for '{result['query']}' "
-                    f"(k={result['k']}):\n"
-                )
-                for i, res in enumerate(result["results"], 1):
-                    if i > 1:
-                        print()
-                    bm25_rank = res["metadata"]["bm25_rank"] or "N/A"
-                    semantic_rank = res["metadata"]["semantic_rank"] or "N/A"
-                    print(f"{i}. {res['title']}")
+            print(
+                f"Reciprocal Rank Fusion Results for '{result['query']}' "
+                f"(k={result['k']}):\n"
+            )
+            for i, res in enumerate(result["results"], 1):
+                if i > 1:
+                    print()
+                bm25_rank = res["metadata"]["bm25_rank"] or "N/A"
+                semantic_rank = res["metadata"]["semantic_rank"] or "N/A"
+                print(f"{i}. {res['title']}")
+                if "rerank_score" in res:
                     print(f"   Re-rank Score: {res['rerank_score']:.3f}/10")
-                    print(f"   RRF Score: {res['score']:.3f}")
-                    print(f"   BM25 Rank: {bm25_rank}, Semantic Rank: {semantic_rank}")
-                    print(f"   {res['document']}...")
-            else:
-                for i, res in enumerate(result["results"], 1):
-                    bm25_rank = res["metadata"]["bm25_rank"] or "N/A"
-                    semantic_rank = res["metadata"]["semantic_rank"] or "N/A"
-                    print(f"{i}. {res['title']}")
-                    print(f"  RRF Score: {res['score']:.3f}")
-                    print(f"  BM25 Rank: {bm25_rank}, Semantic Rank: {semantic_rank}")
-                    print(f"  {res['document']}...")
+                if "rerank_rank" in res:
+                    print(f"   Re-rank Rank: {res['rerank_rank']}")
+                print(f"   RRF Score: {res['score']:.3f}")
+                print(f"   BM25 Rank: {bm25_rank}, Semantic Rank: {semantic_rank}")
+                print(f"   {res['document']}...")
         case "normalize":
             for score in normalize_scores(args.scores):
                 print(f"* {score:.4f}")

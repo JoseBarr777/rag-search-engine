@@ -3,7 +3,7 @@ from typing import Literal, TypedDict
 
 from .keyword_search import InvertedIndex
 from .query_enhancement import enhance_query
-from .reranking import rerank_individual
+from .reranking import rerank_batch, rerank_individual
 from .semantic_search import ChunkedSemanticSearch
 from .search_utils import (
     DEFAULT_HYBRID_ALPHA,
@@ -28,7 +28,7 @@ class RRFSearchCommandResult(TypedDict):
     enhance_method: Literal["spell", "rewrite", "expand"] | None
     query: str
     k: int
-    rerank_method: Literal["individual"] | None
+    rerank_method: Literal["individual", "batch"] | None
     results: list[dict]
 
 
@@ -152,7 +152,7 @@ def rrf_search_command(
     k: int = DEFAULT_RRF_K,
     enhance: Literal["spell", "rewrite", "expand"] | None = None,
     limit: int = DEFAULT_SEARCH_LIMIT,
-    rerank_method: Literal["individual"] | None = None,
+    rerank_method: Literal["individual", "batch"] | None = None,
 ) -> RRFSearchCommandResult:
     original_query = query
     enhanced_query = None
@@ -168,6 +168,8 @@ def rrf_search_command(
 
     if rerank_method == "individual":
         results = rerank_individual(query, results)
+    elif rerank_method == "batch":
+        results = rerank_batch(query, results)
 
     results = results[:limit]
 
