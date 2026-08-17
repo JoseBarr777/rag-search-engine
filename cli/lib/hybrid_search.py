@@ -3,12 +3,14 @@ from typing import Literal, TypedDict
 
 from .keyword_search import InvertedIndex
 from .query_enhancement import enhance_query
+from .reranking import rerank_individual
 from .semantic_search import ChunkedSemanticSearch
 from .search_utils import (
     DEFAULT_HYBRID_ALPHA,
     DEFAULT_RRF_K,
     DEFAULT_SEARCH_LIMIT,
     DOCUMENT_PREVIEW_LENGTH,
+    RERANK_POOL_MULTIPLIER,
     SCORE_PRECISION,
     format_search_result,
     hybrid_score,
@@ -26,6 +28,7 @@ class RRFSearchCommandResult(TypedDict):
     enhance_method: Literal["spell", "rewrite", "expand"] | None
     query: str
     k: int
+    rerank_method: Literal["individual"] | None
     results: list[dict]
 
 
@@ -149,6 +152,7 @@ def rrf_search_command(
     k: int = DEFAULT_RRF_K,
     enhance: Literal["spell", "rewrite", "expand"] | None = None,
     limit: int = DEFAULT_SEARCH_LIMIT,
+    rerank_method: Literal["individual"] | None = None,
 ) -> RRFSearchCommandResult:
     original_query = query
     enhanced_query = None
@@ -158,7 +162,14 @@ def rrf_search_command(
 
     documents = load_movies()
     hybrid = HybridSearch(documents)
-    results = hybrid.rrf_search(query, k, limit)[:limit]
+
+    search_limit = limit * RERANK_POOL_MULTIPLIER if rerank_method else limit
+    results = hybrid.rrf_search(query, k, search_limit)[:search_limit]
+
+    if rerank_method == "individual":
+        results = rerank_individual(query, results)
+
+    results = results[:limit]
 
     return {
         "original_query": original_query,
@@ -166,5 +177,6 @@ def rrf_search_command(
         "enhance_method": enhance,
         "query": query,
         "k": k,
+        "rerank_method": rerank_method,
         "results": results,
     }

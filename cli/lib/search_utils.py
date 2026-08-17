@@ -14,6 +14,7 @@ BM25_B = 0.75
 
 DEFAULT_HYBRID_ALPHA = 0.5
 DEFAULT_RRF_K = 60
+RERANK_POOL_MULTIPLIER = 5
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_PATH = os.path.join(PROJECT_ROOT, "data", "movies.json")
