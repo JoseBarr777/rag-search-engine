@@ -19,6 +19,7 @@ RERANK_POOL_MULTIPLIER = 5
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_PATH = os.path.join(PROJECT_ROOT, "data", "movies.json")
 STOPWORDS_PATH = os.path.join(PROJECT_ROOT, "data", "stopwords.txt")
+GOLDEN_DATASET_PATH = os.path.join(PROJECT_ROOT, "data", "golden_dataset.json")
 CACHE_DIR = os.path.join(PROJECT_ROOT, "cache")
 
 MOVIE_EMBEDDINGS_PATH = os.path.join(CACHE_DIR, "movie_embeddings.npy")
@@ -35,6 +36,11 @@ def load_movies() -> list[dict]:
 def load_stopwords(path: str = STOPWORDS_PATH) -> list[str]:
     with open(path) as file:
         return file.read().splitlines()
+
+
+def load_golden_dataset(path: str = GOLDEN_DATASET_PATH) -> dict:
+    with open(path, "r") as f:
+        return json.load(f)
 
 
 def normalize_scores(scores: list[float]) -> list[float]:
