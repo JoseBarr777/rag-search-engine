@@ -3,7 +3,7 @@ from typing import Literal, TypedDict
 
 from .keyword_search import InvertedIndex
 from .query_enhancement import enhance_query
-from .reranking import rerank_batch, rerank_individual
+from .reranking import rerank_batch, rerank_cross_encoder, rerank_individual
 from .semantic_search import ChunkedSemanticSearch
 from .search_utils import (
     DEFAULT_HYBRID_ALPHA,
@@ -28,7 +28,8 @@ class RRFSearchCommandResult(TypedDict):
     enhance_method: Literal["spell", "rewrite", "expand"] | None
     query: str
     k: int
-    rerank_method: Literal["individual", "batch"] | None
+    rerank_method: Literal["individual", "batch", "cross_encoder"] | None
+    rerank_pool_size: int
     results: list[dict]
 
 
@@ -152,7 +153,7 @@ def rrf_search_command(
     k: int = DEFAULT_RRF_K,
     enhance: Literal["spell", "rewrite", "expand"] | None = None,
     limit: int = DEFAULT_SEARCH_LIMIT,
-    rerank_method: Literal["individual", "batch"] | None = None,
+    rerank_method: Literal["individual", "batch", "cross_encoder"] | None = None,
 ) -> RRFSearchCommandResult:
     original_query = query
     enhanced_query = None
@@ -170,7 +171,10 @@ def rrf_search_command(
         results = rerank_individual(query, results)
     elif rerank_method == "batch":
         results = rerank_batch(query, results)
+    elif rerank_method == "cross_encoder":
+        results = rerank_cross_encoder(query, results)
 
+    rerank_pool_size = len(results)
     results = results[:limit]
 
     return {
@@ -180,5 +184,6 @@ def rrf_search_command(
         "query": query,
         "k": k,
         "rerank_method": rerank_method,
+        "rerank_pool_size": rerank_pool_size,
         "results": results,
     }

@@ -1,9 +1,17 @@
 import json
 import time
 
+from sentence_transformers import CrossEncoder
+
 from .query_enhancement import LLM_MODEL, client
 
 RERANK_SLEEP_SECONDS = 3
+CROSS_ENCODER_MODEL = "cross-encoder/ms-marco-TinyBERT-L2-v2"
+
+try:
+    cross_encoder = CrossEncoder(CROSS_ENCODER_MODEL)
+except Exception:
+    cross_encoder = CrossEncoder(CROSS_ENCODER_MODEL, device="cpu")
 
 
 def _score_result(query: str, doc: dict) -> float:
@@ -80,4 +88,19 @@ Ranking:"""
         if res["id"] in rank_by_id
     ]
     reranked.sort(key=lambda res: res["rerank_rank"])
+    return reranked
+
+
+def rerank_cross_encoder(query: str, results: list[dict]) -> list[dict]:
+    pairs = []
+    for res in results:
+        pairs.append([query, f"{res.get('title', '')} - {res.get('document', '')}"])
+
+    scores = cross_encoder.predict(pairs)
+
+    reranked = [
+        {**res, "cross_encoder_score": float(score)}
+        for res, score in zip(results, scores)
+    ]
+    reranked.sort(key=lambda res: res["cross_encoder_score"], reverse=True)
     return reranked
