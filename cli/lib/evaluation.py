@@ -1,4 +1,7 @@
+import json
+
 from .hybrid_search import HybridSearch
+from .query_enhancement import LLM_MODEL, client
 from .search_utils import DEFAULT_RRF_K, load_golden_dataset, load_movies
 
 
@@ -18,6 +21,45 @@ def f1_score(precision: float, recall: float) -> float:
     if precision + recall == 0:
         return 0.0
     return 2 * precision * recall / (precision + recall)
+
+
+def evaluate_relevance(query: str, results: list[dict]) -> list[int]:
+    formatted_results = [
+        f"{i}. {res['title']}: {res['document']}" for i, res in enumerate(results, 1)
+    ]
+    prompt = f"""Rate how relevant each result is to this query on a 0-3 scale:
+
+Query: "{query}"
+
+Results:
+{chr(10).join(formatted_results)}
+
+Scale:
+- 3: Highly relevant
+- 2: Relevant
+- 1: Marginally relevant
+- 0: Not relevant
+
+Do NOT give any numbers other than 0, 1, 2, or 3.
+
+Return ONLY the scores in the same order you were given the documents. Return a valid JSON list, nothing else. For example:
+
+[2, 0, 3, 2, 0, 1]"""
+
+    response = client.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    content = (response.choices[0].message.content or "").strip()
+    scores = json.loads(content)
+
+    if len(scores) != len(results):
+        raise ValueError(
+            f"LLM response parsing error. Expected {len(results)} scores, "
+            f"got {len(scores)}. Response: {scores}"
+        )
+
+    return scores
 
 
 def evaluate_command(limit: int = 5) -> dict:

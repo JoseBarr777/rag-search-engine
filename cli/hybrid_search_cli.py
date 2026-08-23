@@ -3,6 +3,7 @@
 import argparse
 import logging
 
+from lib.evaluation import evaluate_relevance
 from lib.hybrid_search import build_command, rrf_search_command, weighted_search_command
 from lib.search_utils import (
     DEFAULT_HYBRID_ALPHA,
@@ -66,6 +67,11 @@ def main() -> None:
         type=str,
         choices=["individual", "batch", "cross_encoder"],
         help="LLM re-ranking method to apply to RRF results",
+    )
+    rrf_search_parser.add_argument(
+        "--evaluate",
+        action="store_true",
+        help="Use an LLM to rate the relevance of the RRF search results",
     )
 
     normalize_parser = subparsers.add_parser(
@@ -135,6 +141,11 @@ def main() -> None:
                 print(f"   RRF Score: {res['score']:.3f}")
                 print(f"   BM25 Rank: {bm25_rank}, Semantic Rank: {semantic_rank}")
                 print(f"   {res['document']}...")
+            if args.evaluate:
+                scores = evaluate_relevance(result["query"], result["results"])
+                print("\nEvaluation Report:")
+                for i, (res, score) in enumerate(zip(result["results"], scores), 1):
+                    print(f"{i}. {res['title']}: {score}/3")
         case "normalize":
             for score in normalize_scores(args.scores):
                 print(f"* {score:.4f}")
