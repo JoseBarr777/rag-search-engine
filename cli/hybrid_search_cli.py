@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 
 from lib.hybrid_search import build_command, rrf_search_command, weighted_search_command
 from lib.search_utils import (
@@ -13,6 +14,9 @@ from lib.search_utils import (
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Hybrid Search CLI")
+    parser.add_argument(
+        "--debug", action="store_true", help="Enable debug logging of the search pipeline"
+    )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     subparsers.add_parser("build", help="Build the BM25 index and chunk embeddings")
@@ -72,6 +76,11 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
+    logging.getLogger("lib.hybrid_search").setLevel(
+        logging.DEBUG if args.debug else logging.WARNING
+    )
 
     match args.command:
         case "build":

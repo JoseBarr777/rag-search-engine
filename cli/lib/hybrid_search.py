@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Literal, TypedDict
 
@@ -19,7 +20,15 @@ from .search_utils import (
     rrf_score,
 )
 
+logger = logging.getLogger(__name__)
+
 SEARCH_POOL_MULTIPLIER = 500
+
+
+def _log_results(label: str, results: list[dict]) -> None:
+    logger.debug("%s (%d results):", label, len(results))
+    for i, res in enumerate(results, 1):
+        logger.debug("  %d. (%s) %s - score=%s", i, res["id"], res["title"], res["score"])
 
 
 class RRFSearchCommandResult(TypedDict):
@@ -156,16 +165,20 @@ def rrf_search_command(
     rerank_method: Literal["individual", "batch", "cross_encoder"] | None = None,
 ) -> RRFSearchCommandResult:
     original_query = query
+    logger.debug("Original query: %r", original_query)
+
     enhanced_query = None
     if enhance:
         enhanced_query = enhance_query(query, method=enhance)
         query = enhanced_query
+    logger.debug("Query after enhancement (%s): %r", enhance, query)
 
     documents = load_movies()
     hybrid = HybridSearch(documents)
 
     search_limit = limit * RERANK_POOL_MULTIPLIER if rerank_method else limit
     results = hybrid.rrf_search(query, k, search_limit)[:search_limit]
+    _log_results("Results after RRF search", results)
 
     if rerank_method == "individual":
         results = rerank_individual(query, results)
@@ -176,6 +189,8 @@ def rrf_search_command(
 
     rerank_pool_size = len(results)
     results = results[:limit]
+    if rerank_method:
+        _log_results("Final results after re-ranking", results)
 
     return {
         "original_query": original_query,
