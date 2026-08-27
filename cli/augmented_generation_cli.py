@@ -2,7 +2,7 @@
 
 import argparse
 
-from lib.augmented_generation import rag_command, summarize_command
+from lib.augmented_generation import citations_command, rag_command, summarize_command
 from lib.search_utils import DEFAULT_SEARCH_LIMIT
 
 
@@ -23,23 +23,47 @@ def main() -> None:
         "--limit", type=int, default=DEFAULT_SEARCH_LIMIT, help="Number of results to return"
     )
 
+    citations_parser = subparsers.add_parser(
+        "citations", help="Answer a query with cited sources"
+    )
+    citations_parser.add_argument("query", type=str, help="Search query to answer")
+    citations_parser.add_argument(
+        "--limit", type=int, default=DEFAULT_SEARCH_LIMIT, help="Number of results to return"
+    )
+
     args = parser.parse_args()
 
     match args.command:
         case "rag":
             result = rag_command(args.query)
-            print("Search Results:")
-            for res in result["results"]:
-                print(f"- {res['title']}")
-            print("\nRAG Response:")
-            print(result["answer"])
+            if "error" in result:
+                print(result["error"])
+            else:
+                print("Search Results:")
+                for res in result["results"]:
+                    print(f"- {res['title']}")
+                print("\nRAG Response:")
+                print(result["answer"])
         case "summarize":
             result = summarize_command(args.query, args.limit)
-            print("Search Results:")
-            for res in result["results"]:
-                print(f"  - {res['title']}")
-            print("\nLLM Summary:")
-            print(result["summary"])
+            if "error" in result:
+                print(result["error"])
+            else:
+                print("Search Results:")
+                for res in result["results"]:
+                    print(f"  - {res['title']}")
+                print("\nLLM Summary:")
+                print(result["summary"])
+        case "citations":
+            result = citations_command(args.query, args.limit)
+            if "error" in result:
+                print(result["error"])
+            else:
+                print("Search Results:")
+                for res in result["results"]:
+                    print(f"  - {res['title']}")
+                print("\nLLM Answer:")
+                print(result["answer"])
         case _:
             parser.print_help()
 
