@@ -9,6 +9,7 @@ from lib.search_utils import (
     DEFAULT_HYBRID_ALPHA,
     DEFAULT_RRF_K,
     DEFAULT_SEARCH_LIMIT,
+    DOCUMENT_PREVIEW_LENGTH,
     normalize_scores,
 )
 
@@ -107,7 +108,7 @@ def main() -> None:
                     f"  BM25: {res['metadata']['bm25_score']:.3f}, "
                     f"Semantic: {res['metadata']['semantic_score']:.3f}"
                 )
-                print(f"  {res['document']}...")
+                print(f"  {res['document'][:DOCUMENT_PREVIEW_LENGTH]}...")
         case "rrf-search":
             result = rrf_search_command(
                 args.query, args.k, args.enhance, args.limit, args.rerank_method
@@ -140,7 +141,7 @@ def main() -> None:
                     print(f"   Cross Encoder Score: {res['cross_encoder_score']:.3f}")
                 print(f"   RRF Score: {res['score']:.3f}")
                 print(f"   BM25 Rank: {bm25_rank}, Semantic Rank: {semantic_rank}")
-                print(f"   {res['document']}...")
+                print(f"   {res['document'][:DOCUMENT_PREVIEW_LENGTH]}...")
             if args.evaluate:
                 scores = evaluate_relevance(result["query"], result["results"])
                 print("\nEvaluation Report:")

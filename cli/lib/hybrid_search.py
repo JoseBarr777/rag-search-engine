@@ -10,7 +10,6 @@ from .search_utils import (
     DEFAULT_HYBRID_ALPHA,
     DEFAULT_RRF_K,
     DEFAULT_SEARCH_LIMIT,
-    DOCUMENT_PREVIEW_LENGTH,
     RERANK_POOL_MULTIPLIER,
     SCORE_PRECISION,
     format_search_result,
@@ -93,7 +92,7 @@ class HybridSearch:
             format_search_result(
                 doc_id=entry["document"]["id"],
                 title=entry["document"]["title"],
-                document=entry["document"]["description"][:DOCUMENT_PREVIEW_LENGTH],
+                document=entry["document"]["description"],
                 score=entry["hybrid_score"],
                 bm25_score=round(entry["bm25_score"], SCORE_PRECISION),
                 semantic_score=round(entry["semantic_score"], SCORE_PRECISION),
@@ -135,7 +134,7 @@ class HybridSearch:
             format_search_result(
                 doc_id=entry["document"]["id"],
                 title=entry["document"]["title"],
-                document=entry["document"]["description"][:DOCUMENT_PREVIEW_LENGTH],
+                document=entry["document"]["description"],
                 score=entry["rrf_score"],
                 bm25_rank=entry.get("bm25_rank"),
                 semantic_rank=entry.get("semantic_rank"),

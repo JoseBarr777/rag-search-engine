@@ -26,6 +26,13 @@ class CitationsCommandResult(TypedDict, total=False):
     error: str
 
 
+class QuestionCommandResult(TypedDict, total=False):
+    question: str
+    results: list[dict]
+    answer: str
+    error: str
+
+
 def generate_answer(query: str, results: list[dict]) -> str:
     docs = "\n".join(
         f"{i}. {res['title']}: {res['document']}" for i, res in enumerate(results, 1)
@@ -149,6 +156,49 @@ def citations_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> Citation
 
     return {
         "query": query,
+        "results": results,
+        "answer": answer,
+    }
+
+
+def generate_conversational_answer(question: str, results: list[dict]) -> str:
+    context = "\n".join(
+        f"{i}. {res['title']}: {res['document']}" for i, res in enumerate(results, 1)
+    )
+    prompt = f"""Answer the user's question based on the provided movies that are available on Webflyx, a streaming service.
+
+Question: {question}
+
+Documents:
+{context}
+
+Instructions:
+- Answer questions directly and concisely
+- Be casual and conversational
+- Don't be cringe or hype-y
+- Talk like a normal person would in a chat conversation
+
+Answer:"""
+
+    response = client.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return (response.choices[0].message.content or "").strip()
+
+
+def question_command(question: str, limit: int = DEFAULT_SEARCH_LIMIT) -> QuestionCommandResult:
+    movies = load_movies()
+    hybrid_search = HybridSearch(movies)
+    results = hybrid_search.rrf_search(question, k=DEFAULT_RRF_K, limit=limit)[:limit]
+
+    if not results:
+        return {"question": question, "results": [], "error": "No results found"}
+
+    answer = generate_conversational_answer(question, results)
+
+    return {
+        "question": question,
         "results": results,
         "answer": answer,
     }
