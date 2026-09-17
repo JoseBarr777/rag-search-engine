@@ -227,9 +227,10 @@ Current limitations and possible improvements include:
 
 ## Documentation
 
-Chapter-by-chapter documentation will be available in Notion.
+Chapter-by-chapter documentation is available in Notion:
 
-*Notion link coming soon.*
+[RAG Search Engine — Notion Docs](https://app.notion.com/p/RAG-Search-Engine-3d84318b918480b18523efd249708128?source=copy_link)
+
 
 ## Demo
 
